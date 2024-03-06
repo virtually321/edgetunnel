@@ -1,18 +1,21 @@
-name: Auto Update
+name: Sync from Upstream
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 每天 UTC 时间 00:00 执行一次
+    - cron: '0 0 * * *'  # 每天UTC时间的午夜执行同步
+  workflow_dispatch:  # 手动触发
 
 jobs:
-  update:
+  sync_upstream:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Sync with upstream
-        run: |
-          git fetch upstream
-          git merge upstream/main
-          git push
+      - name: Sync from Upstream
+        uses: edgetunnel/Fork-Sync-With-Upstream-action@v1
+        with:
+          upstream_repo: upstream/repo
+          upstream_branch: main
+          target_branch: main
+          target_repo_token: ${{ secrets.GITHUB_TOKEN }}
