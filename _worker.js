@@ -25,8 +25,8 @@ let parsedSocks5Address = {};
 let enableSocks = false;
 
 // 虚假uuid和hostname，用于发送给配置生成服务
-let fakeUserID = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-let fakeHostName = "EXAMPLE.COM";
+let fakeUserID = generateUUID();
+let fakeHostName = generateRandomString();
 
 export default {
 	/**
@@ -67,12 +67,28 @@ export default {
 					return new Response(JSON.stringify(request.cf), { status: 200 });
 				case `/${userID}`: {
 					const vlessConfig = await getVLESSConfig(userID, request.headers.get('Host'), sub, userAgent, RproxyIP);
-					return new Response(`${vlessConfig}`, {
-					status: 200,
-					headers: {
-						"Content-Type": "text/plain;charset=utf-8",
+					const now = Date.now();
+					const timestamp = Math.floor(now / 1000);
+					const today = new Date(now);
+					today.setHours(0, 0, 0, 0);
+					if (userAgent && userAgent.includes('mozilla')){
+						return new Response(`${vlessConfig}`, {
+							status: 200,
+							headers: {
+								"Content-Type": "text/plain;charset=utf-8",
+							}
+						});
+					} else {
+						return new Response(`${vlessConfig}`, {
+							status: 200,
+							headers: {
+								"Content-Disposition": "attachment; filename=edgetunnel; filename*=utf-8''edgetunnel",
+								"Content-Type": "text/plain;charset=utf-8",
+								"Profile-Update-Interval": "6",
+								"Subscription-Userinfo": `upload=0; download=${Math.floor(((now - today.getTime())/86400000) * 24 * 1099511627776)}; total=${24 * 1099511627776}; expire=${timestamp}`,
+							}
+						});
 					}
-					});
 				}
 				default:
 					return new Response('Not found', { status: 404 });
@@ -790,6 +806,37 @@ function revertFakeInfo(content, userID, hostName, isBase64) {
 	return content;
 }
 
+function generateRandomNumber() {
+	let minNum = 100000;
+	let maxNum = 999999;
+	return Math.floor(Math.random() * (maxNum - minNum + 1)) + minNum;
+}
+
+function generateRandomString() {
+	let minLength = 2;
+	let maxLength = 3;
+	let length = Math.floor(Math.random() * (maxLength - minLength + 1)) + minLength;
+	let characters = 'abcdefghijklmnopqrstuvwxyz';
+	let result = '';
+	for (let i = 0; i < length; i++) {
+		result += characters[Math.floor(Math.random() * characters.length)];
+	}
+	return result;
+}
+
+function generateUUID() {
+	let uuid = '';
+	for (let i = 0; i < 32; i++) {
+		let num = Math.floor(Math.random() * 16);
+		if (num < 10) {
+			uuid += num;
+		} else {
+			uuid += String.fromCharCode(num + 55);
+		}
+	}
+	return uuid.replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5').toLowerCase();
+}
+
 /**
  * @param {string} userID
  * @param {string | null} hostName
@@ -874,14 +921,18 @@ async function getVLESSConfig(userID, hostName, sub, userAgent, RproxyIP) {
 			return 'Error: fetch is not available in this environment.';
 		}
 		// 如果是使用默认域名，则改成一个workers的域名，订阅器会加上代理
-		if (hostName.includes(".workers.dev") || hostName.includes(".pages.dev")) fakeHostName = "EXAMPLE.workers.dev";
+		if (hostName.includes(".workers.dev") || hostName.includes(".pages.dev")){
+			fakeHostName = `${fakeHostName}.${generateRandomString()}${generateRandomNumber()}.workers.dev`;
+		} else {
+			fakeHostName = `${fakeHostName}.${generateRandomNumber()}.xyz`
+		}
 		let content = "";
 		let url = "";
 		let isBase64 = false;
 		if (userAgent.includes('clash')) {
-			url = `https://${subconverter}/sub?target=clash&url=https%3A%2F%2F${sub}%2Fsub%3Fhost%3D${fakeHostName}%26uuid%3D${fakeUserID}%26edgetunnel%3Dcmliu%26proxyip%3D${RproxyIP}&insert=false&config=${encodeURIComponent(subconfig)}&emoji=true&list=false&tfo=false&scv=false&fdn=false&sort=false&new_name=true`;
+			url = `https://${subconverter}/sub?target=clash&url=https%3A%2F%2F${sub}%2Fsub%3Fhost%3D${fakeHostName}%26uuid%3D${fakeUserID}%26edgetunnel%3Dcmliu%26proxyip%3D${RproxyIP}&insert=false&config=${encodeURIComponent(subconfig)}&emoji=true&list=false&tfo=false&scv=true&fdn=false&sort=false&new_name=true`;
 		} else if (userAgent.includes('sing-box') || userAgent.includes('singbox')) {
-			url = `https://${subconverter}/sub?target=singbox&url=https%3A%2F%2F${sub}%2Fsub%3Fhost%3D${fakeHostName}%26uuid%3D${fakeUserID}%26edgetunnel%3Dcmliu%26proxyip%3D${RproxyIP}&insert=false&config=${encodeURIComponent(subconfig)}&emoji=true&list=false&tfo=false&scv=false&fdn=false&sort=false&new_name=true`;
+			url = `https://${subconverter}/sub?target=singbox&url=https%3A%2F%2F${sub}%2Fsub%3Fhost%3D${fakeHostName}%26uuid%3D${fakeUserID}%26edgetunnel%3Dcmliu%26proxyip%3D${RproxyIP}&insert=false&config=${encodeURIComponent(subconfig)}&emoji=true&list=false&tfo=false&scv=true&fdn=false&sort=false&new_name=true`;
 		} else {
 			url = `https://${sub}/sub?host=${fakeHostName}&uuid=${fakeUserID}&edgetunnel=cmliu&proxyip=${RproxyIP}`;
 			isBase64 = true;
